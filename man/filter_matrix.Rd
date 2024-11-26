@@ -24,8 +24,13 @@ filter_matrix(
 \item{norm_counts}{Numeric matrix with normalized counts (ex. tpms). Should have the same dimensions as counts.}
 }
 \value{
-List of size two with counts matrix and norm_counts filtered by expressed genes with genes in the BCCB curated list and
-genes passed in the genes_keep parameter. If norm_counts are not provided, the second item is null
+If norm_counts are not provided, it returns a numeric matrix with expressed genes. If norm_counts are provided, it returns a  List of size two with counts matrix and norm_counts filtered by expressed genes with genes in the BCCB curated list and
+genes passed in the genes_keep parameter.
+
+This function uses the filterByExpr function from the edgeR Bioconductor package,
+and re-adds genes of interest regarding of their expression values.
+These include PAM50 genes, genes in commonly used
+expression signatures and oncogenic genes.
 }
 \description{
 Filter counts and normalized counts (ex. tpms)  for expressed genes

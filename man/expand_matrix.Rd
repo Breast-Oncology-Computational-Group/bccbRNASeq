@@ -21,8 +21,3 @@ A numeric matrix of columns in x plus n sampled columns from column_names
 Function to add extra columns in a matrix by sampling from
 a character vector of column names
 }
-\examples{
-x <- matrix(runif(20), ncol = 4)
-colnames(x) <- paste0("sample", 1:4)
-expand_matrix(x, c("sample1", "sample3"), 5L)
-}

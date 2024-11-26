@@ -4,7 +4,7 @@
 \alias{expressed_genes}
 \title{Get list of expressed genes plus genes of interest}
 \usage{
-expressed_genes(counts, min_count = 100, min_total_count = 150)
+expressed_genes(counts, min_count, min_total_count)
 }
 \arguments{
 \item{counts}{Numeric matrix of gene counts. Rownames are gene symbols, columns are samples}
@@ -15,11 +15,6 @@ expressed_genes(counts, min_count = 100, min_total_count = 150)
 }
 \value{
 A character vector of expressed genes.
-
-This function uses the filterByExpr function from the edgeR Bioconductor package,
-and re-adds genes of interest regarding of their expression values.
-These include PAM50 genes, genes in commonly used
-expression signatures and oncogenic genes.
 }
 \description{
 Get list of expressed genes plus genes of interest
