@@ -16,6 +16,7 @@ hallmark_signatures <- gmtPathways("data-raw/h_rtk.all.v7.2.symbols.gmt")
 breast_signatures <- gmtPathways("data-raw/c2.cgp.breast.v6.1.symbols.gmt")
 signature_genes <- unique(c(unlist(breast_signatures, use.names = FALSE), unlist(hallmark_signatures, use.names = FALSE)))
 
+bccb_signatures <- list(hallmark = hallmark_signatures, c2cgp_breast = breast_signatures)
 genes_ESR1=c("ESR1","GATA3","FOXA1","KMT2C","KMT2D")
 genes_AKT=c("EIF4EBP1","AKT1","AKT2","AKT3","AKT1S1","DEPDC5","DEPTOR","INPP4B","MAPKAP1","MLST8",
             "MTOR","NPRL2","NPRL3","PDK1","PIK3CA","PIK3CB","PIK3R1","PIK3R2","PIK3R3","PPP2R1A","PTEN",
@@ -42,8 +43,4 @@ genes <- vroom("data-raw/gene_dictionary.csv") %>%
   pull(final_name)
 genes <- sample(grep("ENSG", genes, value = TRUE, invert = TRUE), 10000)
 
-sample_expr <- matrix(runif(100000,  max = 10), nrow = 10000)
-rownames(sample_expr) <- genes
-colnames(sample_expr) <- paste0("sample_", 1:10)
-
-usethis::use_data(PAM50genes, bccb_genes, signature_genes, sample_expr,  internal = TRUE, overwrite = TRUE)
+usethis::use_data(PAM50genes, bccb_genes, bccb_signatures, signature_genes, internal = TRUE, overwrite = TRUE)
