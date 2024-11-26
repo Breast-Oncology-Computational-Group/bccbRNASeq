@@ -7,7 +7,6 @@
 #' @param seed Random seed
 #' @param cores Number of cores for parallel processing
 #'
-#' @export
 #' @return Numeric rescaled as a balance ER cohort
 rescale_expr <- function(x, er_status, n_iter, seed, cores) {
   factor_medians <- iterative_qf(x, er_status, n_iter, seed, cores)
@@ -26,8 +25,6 @@ rescale_expr <- function(x, er_status, n_iter, seed, cores) {
 #' @param x Numeric matrix with expression values
 #'
 #' @return Genefu object with PAM50 predictions
-#' @export
-#'
 genefu_pam50 <- function(x) {
 
   if(!rlang::is_installed("genefu")) {
@@ -140,9 +137,9 @@ pam50_rescaled <- function(x, er_status, n_iter = 1000, seed = 37,
             "er_status must be a logical vector" = rlang::is_logical(er_status),
             "er_status vector must have names" = rlang::is_named(er_status),
             "names in er_status vector must match columns in x" = all(names(er_status) %in% colnames(x)),
-            "n_iter must be an scalar integer" = all.equal(n_iter, as.integer(n_iter)) & rlang::is_scalar_integer(as.integer(n_iter)),
-            "seed must be an scalar integer" = all.equal(seed, as.integer(seed)) & rlang::is_scalar_integer(as.integer(seed)),
-            "cores must be an scalar integer" = all.equal(cores, as.integer(cores)) & rlang::is_scalar_integer(as.integer(cores)))
+            "n_iter must be an scalar integer" = is_scalar_numinteger(n_iter),
+            "seed must be an scalar integer" = is_scalar_numinteger(seed),
+            "cores must be an scalar integer" = is_scalar_numinteger(cores))
 
   rx <- rescale_expr(x, er_status, n_iter, seed, cores)
   gpam50 <- genefu_pam50(rx)

@@ -1,21 +1,21 @@
-test_that("neg_missing throws an error if er_status not supplied", {
-  expect_error(neg_missing())
+test_that("er_neg_missing throws an error if er_status not supplied", {
+  expect_error(er_neg_missing())
 })
 
-test_that("neg_missing throws an error if er_status is not a logical vector", {
-  expect_error(neg_missing(LETTERS), "er_status must be a logical vector")
-  expect_error(neg_missing(NULL), "er_status must be a logical vector")
-  expect_error(neg_missing(runif(50)), "er_status must be a logical vector")
+test_that("er_neg_missing throws an error if er_status is not a logical vector", {
+  expect_error(er_neg_missing(LETTERS), "er_status must be a logical vector")
+  expect_error(er_neg_missing(NULL), "er_status must be a logical vector")
+  expect_error(er_neg_missing(runif(50)), "er_status must be a logical vector")
 })
 
-test_that("neg_missing returns a single positive value",  {
-  nm <- neg_missing(sample(c(TRUE, FALSE, NA), size = 50, replace = T, prob = c(0.8, 0.15, 0.05)))
+test_that("er_neg_missing returns a single positive value",  {
+  nm <- er_neg_missing(sample(c(TRUE, FALSE, NA), size = 50, replace = T, prob = c(0.8, 0.15, 0.05)))
   expect_equal(length(nm), 1)
   expect_gt(nm, 0)
 })
 
-test_that("neg_missing returns 0 for negatively unbalanced cohort",  {
-  nm <- neg_missing(sample(c(TRUE, FALSE, NA), size = 50, replace = T, prob = c(0.15,0.8, 0.05)))
+test_that("er_neg_missing returns 0 for negatively unbalanced cohort",  {
+  nm <- er_neg_missing(sample(c(TRUE, FALSE, NA), size = 50, replace = T, prob = c(0.15,0.8, 0.05)))
   expect_equal(length(nm), 1)
   expect_equal(nm, 0)
 })
@@ -79,24 +79,24 @@ test_that("expand_matrix adds zero columns correctly", {
   expect_equal(sum(grepl("_DUP", colnames(em))), 0)
 })
 
-test_that("iterative_qf calls neg_missing", {
+test_that("iterative_qf calls er_neg_missing", {
   ngm <- mock(sample.int(100, 1))
   x <- named_nm_matrix(5, 100)
   er <- log_vector(100, colnames(x))
   with_mocked_bindings(code = {
     iterative_qf(x, er, 10, seed = 37, cores = 2)
     expect_called(ngm, 1)
-  }, neg_missing = ngm)
+  }, er_neg_missing = ngm)
 })
 
-test_that("iterative_luf calls neg_missing", {
+test_that("iterative_luf calls er_neg_missing", {
   ngm <- mock(sample.int(100, 1))
   x <- named_nm_matrix(5, 100)
   er <- log_vector(100, colnames(x))
   with_mocked_bindings(code = {
     iterative_qf(x, er, 10, seed = 37, cores = 2)
     expect_called(ngm, 1)
-  }, neg_missing = ngm)
+  }, er_neg_missing = ngm)
 })
 
 ##
@@ -110,7 +110,7 @@ test_that("iterative_qf_np calls expand_matrix correct number of times", {
   with_mocked_bindings(code = {
     iterative_qf_np(x, er, n_iter =  nc, seed = 37)
     expect_called(em, nc)
-  }, neg_missing = ngm, expand_matrix = em)
+  }, er_neg_missing = ngm, expand_matrix = em)
 })
 
 ##
@@ -127,5 +127,5 @@ test_that("iterative_qf_np calls expand_matrix with correct arguments", {
     expect_called(em, nc)
     margs <- mock_args(em)
     expect_equal(margs, cargs)
-  }, neg_missing = ngm, expand_matrix = em)
+  }, er_neg_missing = ngm, expand_matrix = em)
 })

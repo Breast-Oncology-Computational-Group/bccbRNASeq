@@ -1,3 +1,9 @@
+is_scalar_numinteger <- function(n) {
+  return(is.numeric(n) && isTRUE(all.equal(n, as.integer(n))) &&
+           rlang::is_scalar_integer(as.integer(n)))
+}
+
+
 #' Get number of ER negative samples to achieve a balanced cohort
 #' according to J Clin Oncol. 2020 Dec 10; 38(35): 4184–4193.
 #'
@@ -9,8 +15,8 @@
 #' @export
 #'
 #' @examples
-#' neg_missing(sample(c(TRUE, FALSE, NA), size = 50, replace = TRUE, prob = c(0.9, 0.07, 0.03)))
-neg_missing <- function(er_status) {
+#' er_neg_missing(sample(c(TRUE, FALSE, NA), size = 50, replace = TRUE, prob = c(0.9, 0.07, 0.03)))
+er_neg_missing <- function(er_status) {
 
   rlang::check_required(er_status, "er_status")
   stopifnot("er_status must be a logical vector" = rlang::is_logical(er_status))
@@ -32,11 +38,6 @@ neg_missing <- function(er_status) {
 #' @param n Number of sampled columns
 #'
 #' @return A numeric matrix of columns in x plus n sampled columns from column_names
-#' @export
-#' @examples
-#' x <- matrix(runif(20), ncol = 4)
-#' colnames(x) <- paste0("sample", 1:4)
-#' expand_matrix(x, c("sample1", "sample3"), 5L)
 expand_matrix <- function(x, column_names, n = length(column_names)) {
 
   rlang::check_required(column_names, "column_names")
@@ -45,7 +46,7 @@ expand_matrix <- function(x, column_names, n = length(column_names)) {
   stopifnot("x must be a numeric matrix" = rlang::is_bare_numeric(x) & length(dim(x)) == 2,
             "column_names must be a character vector" = rlang::is_character(column_names),
             "values in column_names must match columns in x" = all(column_names %in% colnames(x)),
-            "n must be an scalar integer" = is.numeric(n) && isTRUE(all.equal(n, as.integer(n))) && rlang::is_scalar_integer(as.integer(n)))
+            "n must be an scalar integer" = is_scalar_numinteger(n))
 
   if(n == 0) {
     return(x)
@@ -66,15 +67,15 @@ iterative_factors <- function(fun_factor) {
               "er_status must be a logical vector" = rlang::is_logical(er_status),
               "er_status vector must have names" = rlang::is_named(er_status),
               "names in er_status vector must match columns in x" = all(names(er_status) %in% colnames(x)),
-              "n_iter must be an scalar integer" =  is.numeric(n_iter) && isTRUE(all.equal(n_iter, as.integer(n_iter))) && rlang::is_scalar_integer(as.integer(n_iter)),
-              "seed must be an scalar integer" =  is.numeric(seed) && isTRUE(all.equal(seed, as.integer(seed))) && rlang::is_scalar_integer(as.integer(seed)),
-              "cores must be an scalar integer" =  is.numeric(cores) && isTRUE(all.equal(cores, as.integer(cores))) && rlang::is_scalar_integer(as.integer(cores)))
+              "n_iter must be an scalar integer" = is_scalar_numinteger(n_iter),
+              "seed must be an scalar integer" = is_scalar_numinteger(seed),
+              "cores must be an scalar integer" = is_scalar_numinteger(cores))
 
     ## To use set.seed with parallel::mclapply
     ## https://stackoverflow.com/questions/30456481/controlling-seeds-with-mclapply
     RNGkind("L'Ecuyer-CMRG")
     set.seed(seed)
-    negm <- neg_missing(er_status)
+    negm <- er_neg_missing(er_status)
     negc <- names(Filter(isFALSE, er_status))
     factors <- parallel::mclapply(FUN = function(i) {
       rmatrix <- expand_matrix(x, negc, negm)
@@ -93,13 +94,13 @@ iterative_factors_noparallel <- function(fun_factor) {
               "er_status must be a logical vector" = rlang::is_logical(er_status),
               "er_status vector must have names" = rlang::is_named(er_status),
               "names in er_status vector must match columns in x" = all(names(er_status) %in% colnames(x)),
-              "n_iter must be an scalar integer" =  is.numeric(n_iter) && isTRUE(all.equal(n_iter, as.integer(n_iter))) && rlang::is_scalar_integer(as.integer(n_iter)),
-              "seed must be an scalar integer" =  is.numeric(seed) && isTRUE(all.equal(seed, as.integer(seed))) && rlang::is_scalar_integer(as.integer(seed)))
+              "n_iter must be an scalar integer" = is_scalar_numinteger(n_iter),
+              "seed must be an scalar integer" = is_scalar_numinteger(seed))
 
 
     stopifnot("ER status vector must have names" = rlang::is_named(er_status))
     set.seed(seed)
-    negm <- neg_missing(er_status)
+    negm <- er_neg_missing(er_status)
     negc <- names(Filter(isFALSE, er_status))
     factors <- lapply(1:n_iter, function(i) {
         rmatrix <- expand_matrix(x, negc, negm)
