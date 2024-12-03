@@ -46,14 +46,15 @@ genefu_pam50 <- function(x) {
     x <- x[PAM50genes[[col_match]], ]
     rownames(x) <- PAM50genes[["hugo_symbol"]]
   } else {
-    x <- x[PAM50genes[["entrez_id"]], ]
+    x <- x[PAM50genes[["hugo_symbol"]], ]
   }
+
   annot <- PAM50genes[ ,c("entrez_id", "hugo_symbol"), drop = FALSE]
   rownames(annot) <- PAM50genes[["hugo_symbol"]]
   colnames(annot) <- c("EntrezGene.ID", "probe")
 
-  genefu_pam50 <- utils::data('pam50', package = "genefu", envir = environment())
-  pam50_preds <- genefu::intrinsic.cluster.predict(sbt.model = get(genefu_pam50),
+  genefu_pam50_model <- utils::data('pam50', package = "genefu", envir = environment())
+  pam50_preds <- genefu::intrinsic.cluster.predict(sbt.model = get(genefu_pam50_model),
                                                    data = t(x),
                                                    annot = annot,
                                                    do.mapping = TRUE,
