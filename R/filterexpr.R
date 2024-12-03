@@ -43,7 +43,7 @@ missing_genes <- function(counts) {
 #' expression signatures and oncogenic genes.
 #'
 #' @export
-filter_matrix <- function(counts, min_count = 100, min_total_count = 150, genes_keep = NULL, norm_counts = NULL) {
+subset_expressed_genes <- function(counts, min_count = 100, min_total_count = 150, genes_keep = NULL, norm_counts = NULL) {
 
   stopifnot("counts must be a numeric matrix" = rlang::is_bare_numeric(counts) & length(dim(counts)) == 2,
             "counts must have rownames" = !is.null(rownames(counts)),
