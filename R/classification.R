@@ -17,16 +17,18 @@ classification_rescaled <- function(x, er_status, n_iter = 100, seed = 37, cores
 
   factor_medians <- iterative_luf(x, er_status, n_iter, seed, cores)
 
-  class_expr <- apply(x, 2, function(x) {
+  class_expr <- apply(x, 2, function(y) {
     dplyr::case_when(
-      x > factor_medians$uq10 ~ "Upper Decile",
-      x > factor_medians$uq ~ "Upper Quartile",
-      x < factor_medians$lq10 ~ "Lower Decile",
-      x < factor_medians$lq ~ "Lower Quartile",
+      y > factor_medians$uq10 ~ "Upper Decile",
+      y > factor_medians$uq ~ "Upper Quartile",
+      y < factor_medians$lq10 ~ "Lower Decile",
+      y < factor_medians$lq ~ "Lower Quartile",
       .default = ""
     )
-  })
+  }) |>
+    matrix(nrow = nrow(x), ncol = ncol(x))
   rownames(class_expr) <- rownames(x)
+  colnames(class_expr) <- colnames(x)
 
   return(class_expr)
 }
