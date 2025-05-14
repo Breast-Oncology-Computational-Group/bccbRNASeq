@@ -15,7 +15,7 @@ classification_rescaled <- function(x, er_status, n_iter = 100, seed = 37, cores
             "seed must be an scalar integer" = is_scalar_numinteger(seed),
             "cores must be an scalar integer" = is_scalar_numinteger(cores))
 
-  factor_medians <- iterative_luf(x, er_status, n_iter, seed, cores)
+  factor_medians <- lufactors_median(x, er_status, unc_erpos, n_iter, seed, cores)
 
   class_expr <- apply(x, 2, function(y) {
     dplyr::case_when(

@@ -4,7 +4,7 @@
 \alias{ss_gsea}
 \title{Get single sample GSEA for a list of samples}
 \usage{
-ss_gsea(norm_counts, set_list, seed = 37, cores = getOption("mc.cores", 2L))
+ss_gsea(norm_counts, set_list, seed = 37)
 }
 \arguments{
 \item{norm_counts}{Numeric matrix with normalized counts. Rownames are gene symbols, columns are samples}
@@ -12,8 +12,6 @@ ss_gsea(norm_counts, set_list, seed = 37, cores = getOption("mc.cores", 2L))
 \item{set_list}{List of signatures for GSEA}
 
 \item{seed}{Random seed}
-
-\item{cores}{Number of cores for parallel processing}
 }
 \value{
 Data frame with GSEA outputs from fgsea::fgsea. The data frame contains the following columns:

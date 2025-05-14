@@ -18,6 +18,27 @@ qfactors <- function(x) {
   )
 }
 
+#' Get factors
+#'
+#' @param x  Numeric matrix of gene expression. Rows are genes, columns are samples
+#' @param qs Named vector for quantile probabilities.
+#' Rownames in q and names in qs must match
+#' @return Named numeric vector with x row quantile factors
+#'
+sfactors <- function(x, qs) {
+  stopifnot("x must be a numeric matrix" = rlang::is_bare_numeric(x) & length(dim(x)) == 2,
+            "qs must be a numeric vector" = rlang::is_bare_double(qs) & is.null(dim(qs)),
+            "qs must have names" = rlang::is_named(qs),
+            "rownames in x and names in qs must match" = all(names(qs) %in% rownames(x)))
+
+  mfs <- lapply(names(qs), function(r) {
+    stats::quantile(x[r,], probs=qs[r], na.rm=TRUE, names = FALSE)
+  })
+  names(mfs) <- names(qs)
+  return(mfs)
+}
+
+
 #' Get lower and upper quantile and decile factors per rows
 #'
 #' @param x Numeric matrix of gene expression. Rows are genes, columns are samples
@@ -39,15 +60,4 @@ lufactors <- function(x) {
     lq10 = apply(x, 1, stats::quantile, probs=0.10, na.rm=TRUE),
     uq10 = apply(x, 1, stats::quantile, probs=0.9, na.rm=TRUE)
   )
-}
-
-# This function takes a list where each element is also list with same number of
-# elements, each one of them a vector with the same number of elements
-factors_median <- function(factors) {
-  fs_names <- names(factors[[1]])
-  mfs <- lapply(fs_names, FUN = function(fn) {
-    apply(do.call("cbind", lapply(factors, "[[", fn)), 1, median)
-  })
-  names(mfs) <- fs_names
-  return(mfs)
 }

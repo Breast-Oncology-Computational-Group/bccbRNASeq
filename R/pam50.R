@@ -1,35 +1,9 @@
-#' Rescale expression matrix
-#'
-#' @param x Numeric matrix with expression values
-#' @param er_status Logical vector indicating ER positivity. NAs are treated as
-#' Unknown or Indeterminate status
-#' @param n_iter Number of iterations for sampling
-#' @param seed Random seed
-#' @param cores Number of cores for parallel processing
-#'
-#' @return Numeric rescaled as a balance ER cohort
-rescale_expr <- function(x, er_status, n_iter, seed, cores) {
-  factor_medians <- iterative_qf(x, er_status, n_iter, seed, cores)
-
-  x_res <- apply(x, 2, function(x) {
-    X <- (x - factor_medians$mif) / (factor_medians$ma - factor_medians$mif)
-    X <- (X - 0.5)*2
-  })
-
-  return(as.matrix(x_res))
-
-}
-
-#' Get genefu predictions
+#' Filter matrix to PAM50 genes
 #'
 #' @param x Numeric matrix with expression values
 #'
-#' @return Genefu object with PAM50 predictions
-genefu_pam50 <- function(x) {
-
-  if(!rlang::is_installed("genefu")) {
-    stop("Please install genefu from Bioconductor")
-  }
+#' @return Numeric matrix subsetted for PAM50 genes
+subset_pam50 <- function(x) {
 
   id_matches <- sapply(colnames(PAM50genes), function(id) {
     length(intersect(rownames(x), PAM50genes[[id]]))
@@ -48,14 +22,29 @@ genefu_pam50 <- function(x) {
   } else {
     x <- x[PAM50genes[["hugo_symbol"]], ]
   }
+  return(x)
+}
 
+
+#' Get genefu predictions
+#'
+#' @param x Numeric matrix with expression values
+#'
+#' @return Genefu object with PAM50 predictions
+genefu_pam50 <- function(x) {
+
+  if(!rlang::is_installed("genefu")) {
+    stop("Please install genefu from Bioconductor")
+  }
+
+  x_pam50 <- subset_pam50(x)
   annot <- PAM50genes[ ,c("entrez_id", "hugo_symbol"), drop = FALSE]
   rownames(annot) <- PAM50genes[["hugo_symbol"]]
   colnames(annot) <- c("EntrezGene.ID", "probe")
 
   genefu_pam50_model <- utils::data('pam50', package = "genefu", envir = environment())
   pam50_preds <- genefu::intrinsic.cluster.predict(sbt.model = get(genefu_pam50_model),
-                                                   data = t(x),
+                                                   data = t(x_pam50),
                                                    annot = annot,
                                                    do.mapping = TRUE,
                                                    mapping = annot,
@@ -106,7 +95,8 @@ pam50_mixed <- function(pam50_preds){
     dplyr::select("sample_id", "PAM50_subtype", "PAM50_subtype_mixed", "subt_probs") |>
     tidyr::unnest_wider("subt_probs") |>
     dplyr::rename_with(.fn = ~paste0('pr_', .), .cols = -c("sample_id", tidyr::starts_with("pam50"))) |>
-    tidyr::unnest(c("PAM50_subtype", "PAM50_subtype_mixed"))
+    tidyr::unnest(c("PAM50_subtype", "PAM50_subtype_mixed")) |>
+    dplyr::ungroup()
 
   # merge with correlation
   pam50_mixed <- pam50_mixed |>
@@ -121,7 +111,9 @@ pam50_mixed <- function(pam50_preds){
   return(pam50_mixed)
 }
 
-#' Get pam50 with rescalling
+#' Get pam50 predictions with ER status rescaling
+#' This method requires a mixed ER+/ER- cohort. Rescaling is performed to match
+#' the ER+ proportion in the UNC cohort.
 #'
 #' @param x Numeric matrix with expression values
 #' @param er_status Logical vector indicating ER positivity. NAs are treated as
@@ -142,9 +134,42 @@ pam50_rescaled <- function(x, er_status, n_iter = 1000, seed = 37,
             "seed must be an scalar integer" = is_scalar_numinteger(seed),
             "cores must be an scalar integer" = is_scalar_numinteger(cores))
 
-  rx <- rescale_expr(x, er_status, n_iter, seed, cores)
+  rx <- rescale_expr(x, er_status, unc_erpos, n_iter, seed, cores)
   gpam50 <- genefu_pam50(rx)
-  mpam50 <- pam50_mixed(gpam50)
-  return(mpam50)
+  return(pam50_mixed(gpam50))
 }
+
+
+
+#' Get pam50 predictions using gene centering.
+#' This method is intended for single receptor cohorts.
+#'
+#' @param x Numeric matrix with expression values
+#' @param receptor_status Receptor status of the samples in the cohort. Accepted
+#' values are: ERpos_HER2neg, HER2pos_ERneg, HER2pos_ERpos, TNBC
+#'
+#' @returns Data frame with PAM50 predictions for each sample and its corresponding subtype correlations
+#' @export
+pam50_receptor_gene_centering <- function(x, receptor_status) {
+  stopifnot("x must be a numeric matrix" = rlang::is_bare_numeric(x) & length(dim(x)) == 2)
+  rlang::arg_match(receptor_status, values = c("ERpos_HER2neg", "HER2pos_ERneg", "HER2pos_ERpos", "TNBC"))
+
+  maf_mif <- qfactors(x)
+  qs <- PAM50sigma[,receptor_status]
+
+  x_res <- apply(x, 2, function(x) {
+    X <- (x - maf_mif$mif) / (maf_mif$maf - maf_mif$mif)
+    X <- (X - 0.5)*2
+  })
+
+  x_res_pam50 <- subset_pam50(x_res)
+
+  sfs <- unlist(sfactors(x_res_pam50, qs))
+  x_res_pam50 <- x_res_pam50[names(sfs), ]
+  x_res_pam50 <- apply(x_res_pam50, 2, function(s) s - sfs)
+  gpam50 <- genefu_pam50(x_res_pam50)
+  return(pam50_mixed(gpam50))
+}
+
+
 

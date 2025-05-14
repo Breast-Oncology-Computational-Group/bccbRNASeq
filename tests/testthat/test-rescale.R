@@ -1,23 +1,56 @@
-test_that("er_neg_missing throws an error if er_status not supplied", {
-  expect_error(er_neg_missing())
+test_that("negative_samples_needed throws an error if status not supplied", {
+  expect_error(negative_samples_needed())
 })
 
-test_that("er_neg_missing throws an error if er_status is not a logical vector", {
-  expect_error(er_neg_missing(LETTERS), "er_status must be a logical vector")
-  expect_error(er_neg_missing(NULL), "er_status must be a logical vector")
-  expect_error(er_neg_missing(runif(50)), "er_status must be a logical vector")
+test_that("negative_samples_needed throws an error if status is not a logical vector", {
+  expect_error(negative_samples_needed(LETTERS), "status must be a logical vector")
+  expect_error(negative_samples_needed(NULL), "status must be a logical vector")
+  expect_error(negative_samples_needed(runif(50)), "status must be a logical vector")
 })
 
-test_that("er_neg_missing returns a single positive value",  {
-  nm <- er_neg_missing(sample(c(TRUE, FALSE, NA), size = 50, replace = T, prob = c(0.8, 0.15, 0.05)))
+test_that("negative_samples_needed throws an error if pos_ratio is not an scalar number", {
+  expect_error(negative_samples_needed(log_vector(50), LETTERS), "pos_ratio must be numeric")
+  expect_error(negative_samples_needed(log_vector(50), TRUE), "pos_ratio must be numeric")
+  expect_error(negative_samples_needed(log_vector(50), runif(50)), "pos_ratio must be numeric")
+})
+
+test_that("negative_samples_needed throws an error if pos_ratio is not between 0 and 1", {
+  expect_error(negative_samples_needed(log_vector(50), 0), "pos_ratio outside \\[0,1\\]")
+  expect_error(negative_samples_needed(log_vector(50), 1), "pos_ratio outside \\[0,1\\]")
+  expect_error(negative_samples_needed(log_vector(50), as.numeric(sample.int(1, n =100))), "pos_ratio outside \\[0,1\\]")
+  expect_error(negative_samples_needed(log_vector(50), -1*runif(1)), "pos_ratio outside \\[0,1\\]")
+})
+
+
+test_that("negative_samples_needed returns a single positive value",  {
+  nm <- negative_samples_needed(sample(c(TRUE, FALSE, NA), size = 50, replace = T, prob = c(0.8, 0.15, 0.05)))
   expect_equal(length(nm), 1)
-  expect_gt(nm, 0)
 })
 
-test_that("er_neg_missing returns 0 for negatively unbalanced cohort",  {
-  nm <- er_neg_missing(sample(c(TRUE, FALSE, NA), size = 50, replace = T, prob = c(0.15,0.8, 0.05)))
+test_that("negative_samples_needed returns correct number for negatively unbalanced cohort",  {
+  nm <- negative_samples_needed(sample(c(rep(TRUE, 80), rep(FALSE, 20), rep(NA, 15))))
+  expect_equal(length(nm), 1)
+  expect_equal(nm, 24)
+})
+
+test_that("negative_samples_needed returns cero for balanced cohort",  {
+  nm <- negative_samples_needed(sample(c(rep(TRUE, 80), rep(FALSE, 20), rep(NA, 15))), 0.8)
   expect_equal(length(nm), 1)
   expect_equal(nm, 0)
+})
+
+test_that("negative_samples_needed returns correct number for negatively unbalanced cohort with
+          given ratio",  {
+  nm <- negative_samples_needed(sample(c(rep(TRUE, 80), rep(FALSE, 20), rep(NA, 15))), 0.1)
+  expect_equal(length(nm), 1)
+  expect_equal(nm, 700)
+})
+
+test_that("negative_samples_needed returns correct number for positively unbalanced cohort with
+          given ratio",  {
+  nm <- negative_samples_needed(sample(c(rep(TRUE, 80), rep(FALSE, 20), rep(NA, 15))), 0.9)
+  expect_equal(length(nm), 1)
+  expect_equal(nm, -100)
 })
 
 test_that("expand_matrix throws an error if x is not provided", {
@@ -79,28 +112,28 @@ test_that("expand_matrix adds zero columns correctly", {
   expect_equal(sum(grepl("_DUP", colnames(em))), 0)
 })
 
-test_that("iterative_qf calls er_neg_missing", {
+test_that("qfactors_median calls negative_samples_needed", {
   ngm <- mock(sample.int(100, 1))
   x <- named_nm_matrix(5, 100)
   er <- log_vector(100, colnames(x))
   with_mocked_bindings(code = {
-    iterative_qf(x, er, 10, seed = 37, cores = 2)
+    qfactors_median(x, er, runif(1), 10, seed = 37, cores = 2)
     expect_called(ngm, 1)
-  }, er_neg_missing = ngm)
+  }, negative_samples_needed = ngm)
 })
 
-test_that("iterative_luf calls er_neg_missing", {
+test_that("iterative_luf calls negative_samples_needed", {
   ngm <- mock(sample.int(100, 1))
   x <- named_nm_matrix(5, 100)
   er <- log_vector(100, colnames(x))
   with_mocked_bindings(code = {
-    iterative_qf(x, er, 10, seed = 37, cores = 2)
+    qfactors_median(x, er, runif(1), 10, seed = 37, cores = 2)
     expect_called(ngm, 1)
-  }, er_neg_missing = ngm)
+  }, negative_samples_needed = ngm)
 })
 
 ##
-test_that("iterative_qf_np calls expand_matrix correct number of times", {
+test_that("qfactors_median_np calls expand_matrix correct number of times", {
   x <- named_nm_matrix(5, 100)
   er <- log_vector(100, colnames(x))
   nn <- sample.int(100, 1)
@@ -108,13 +141,13 @@ test_that("iterative_qf_np calls expand_matrix correct number of times", {
   ngm <- mock(nn)
   em <- mock(x, cycle = TRUE)
   with_mocked_bindings(code = {
-    iterative_qf_np(x, er, n_iter =  nc, seed = 37)
+    qfactors_median_np(x, er, runif(1), n_iter =  nc, seed = 37)
     expect_called(em, nc)
-  }, er_neg_missing = ngm, expand_matrix = em)
+  }, negative_samples_needed = ngm, expand_matrix = em)
 })
 
 ##
-test_that("iterative_qf_np calls expand_matrix with correct arguments", {
+test_that("qfactors_median_np calls expand_matrix with correct arguments", {
   x <- named_nm_matrix(5, 100)
   er <- log_vector(100, colnames(x))
   nn <- sample.int(100, 1)
@@ -123,9 +156,10 @@ test_that("iterative_qf_np calls expand_matrix with correct arguments", {
   em <- mock(x, cycle = TRUE)
   cargs <- lapply(1:nc, function(i) list(x, names(which(!er)), nn))
   with_mocked_bindings(code = {
-    iterative_qf_np(x, er, n_iter = nc, seed = 37)
+    qfactors_median_np(x, er, runif(1), n_iter = nc, seed = 37)
     expect_called(em, nc)
     margs <- mock_args(em)
     expect_equal(margs, cargs)
-  }, er_neg_missing = ngm, expand_matrix = em)
+  }, negative_samples_needed = ngm, expand_matrix = em)
 })
+

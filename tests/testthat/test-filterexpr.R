@@ -67,7 +67,7 @@ test_that("subset_expressed_genes throws warning when missing BCCB genes found",
   mgm <- mock(sample(letters, size = n, replace = TRUE))
 
   with_mocked_bindings({
-    expect_warning(subset_expressed_genes(nm), paste0(n, "/", length(bccb_genes), " BCCB genes were not found in the matrix. Are you using gene symbols?"))
+    expect_warning(subset_expressed_genes(nm), paste0(n, "/", length(bccb_genes), " BCCB genes were not found in the matrix"))
   }, expressed_genes = egm, missing_genes = mgm)
 })
 

@@ -1,6 +1,7 @@
 library(vroom)
 library(dplyr)
 library(fgsea)
+library(tibble)
 
 PAM50genes <- vroom("data-raw/PAM50_symbol_entrez_2.csv",
                     col_types = cols(.default = col_character()))
@@ -9,14 +10,29 @@ PAM50genes <- PAM50genes %>%
   dplyr::select(entrez_id = ENTREZID, hugo_symbol = SYMBOL, ensembl_id = Gene.stable.ID,
          ensembl_id_version = Gene.stable.ID, hgnc_symbol_gene_id) %>%
   dplyr::mutate(ensembl_id = gsub("\\.(\\d)+", "", ensembl_id)) %>%
-  as.data.frame()
+  as.data.frame() |>
+  dplyr::select(-hgnc_symbol_gene_id)
+
+PAM50sigma <- vroom("data-raw/sigma_pam50.csv") |>
+ rename(hugo_symbol = "...1")
+
+PAM50sigma <- PAM50sigma |>
+  mutate(hugo_symbol = case_match(hugo_symbol,
+                           "KNTC2" ~ "NDC80",
+                           "ORC6L" ~ "ORC6",
+                           "CDCA1" ~ "NUF2",
+                           .default = hugo_symbol))
+
+PAM50sigma <- PAM50sigma |>
+  tibble::column_to_rownames("hugo_symbol") |>
+  as.matrix()
 
 hallmark_signatures <- gmtPathways("data-raw/h_rtk.all.v7.2.symbols.gmt")
-
 breast_signatures <- gmtPathways("data-raw/c2.cgp.breast.v6.1.symbols.gmt")
-signature_genes <- unique(c(unlist(breast_signatures, use.names = FALSE), unlist(hallmark_signatures, use.names = FALSE)))
+tirosh_signatures <- gmtPathways("data-raw/c4.3ca.v2024.1.Hs.symbols-corrected.gmt")
 
-bccb_signatures <- list(hallmark = hallmark_signatures, c2cgp_breast = breast_signatures)
+bccb_signatures <- list(hallmark = hallmark_signatures, c2cgp_breast = breast_signatures,
+                        tirosh = tirosh_signatures)
 genes_ESR1=c("ESR1","GATA3","FOXA1","KMT2C","KMT2D")
 genes_AKT=c("EIF4EBP1","AKT1","AKT2","AKT3","AKT1S1","DEPDC5","DEPTOR","INPP4B","MAPKAP1","MLST8",
             "MTOR","NPRL2","NPRL3","PDK1","PIK3CA","PIK3CB","PIK3R1","PIK3R2","PIK3R3","PPP2R1A","PTEN",
@@ -34,13 +50,18 @@ genes_Prol=c("CDKN1A","CDKN1B","CDKN2A","CDKN2B","CDKN2C","CCND1","CCND2","CCND3
 genes_Inmune=c("PDCD1", "CD274", "CTLA4")
 genes_Onco <- vroom("data-raw/CDK46_Seth_gene_list_16177.ordered_3.plus_genes_from_Daniel.txt", delim = "\t") %>%
   pull("Hugo_Symbol")
+LM22genes <- vroom("data-raw/LM22_symbol.tsv", delim = "\t")
+LM22genes <- LM22genes$Gene
 
+# Some LM22 genes are not in our dictionary
 bccb_genes <- unique(c(PAM50genes$hugo_symbol, genes_ESR1, genes_AKT, genes_MAPK,
-                       genes_Prol, genes_RTK, genes_Inmune, genes_Onco))
-
+                       genes_Prol, genes_RTK, genes_Inmune, genes_Onco, LM22genes))
 
 genes <- vroom("data-raw/gene_dictionary.csv") %>%
   pull(final_name)
-genes <- sample(grep("ENSG", genes, value = TRUE, invert = TRUE), 10000)
 
-usethis::use_data(PAM50genes, bccb_genes, bccb_signatures, signature_genes, internal = TRUE, overwrite = TRUE)
+bccb_genes <- bccb_genes[bccb_genes %in% genes]
+unc_erpos <- 126/195
+
+usethis::use_data(PAM50genes, PAM50sigma,
+                  LM22genes, bccb_genes, bccb_signatures, unc_erpos, internal = TRUE, overwrite = TRUE)

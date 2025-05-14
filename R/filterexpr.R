@@ -57,7 +57,7 @@ subset_expressed_genes <- function(counts, min_count = 100, min_total_count = 15
 
   not_found <- length(missing_genes(counts))
   if(not_found > 1) {
-    warning(not_found, "/", length(bccb_genes), " BCCB genes were not found in the matrix. Are you using gene symbols?")
+    warning(not_found, "/", length(bccb_genes), " BCCB genes were not found in the matrix")
   }
 
   not_found <- sum(!genes_keep %in% rownames(counts))

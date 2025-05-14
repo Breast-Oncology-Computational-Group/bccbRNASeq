@@ -2,7 +2,9 @@
 % Please edit documentation in R/pam50.R
 \name{pam50_rescaled}
 \alias{pam50_rescaled}
-\title{Get pam50 with rescalling}
+\title{Get pam50 predictions with ER status rescaling
+This method requires a mixed ER+/ER- cohort. Rescaling is performed to match
+the ER+ proportion in the UNC cohort.}
 \usage{
 pam50_rescaled(
   x,
@@ -28,5 +30,7 @@ Unknown or Indeterminate status}
 Data frame with PAM50 predictions for each sample and its corresponding subtype correlations
 }
 \description{
-Get pam50 with rescalling
+Get pam50 predictions with ER status rescaling
+This method requires a mixed ER+/ER- cohort. Rescaling is performed to match
+the ER+ proportion in the UNC cohort.
 }

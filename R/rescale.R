@@ -4,29 +4,35 @@ is_scalar_numinteger <- function(n) {
 }
 
 
-#' Get number of ER negative samples to achieve a balanced cohort
-#' according to J Clin Oncol. 2020 Dec 10; 38(35): 4184–4193.
+#' Get number of negative samples to achieve a balanced cohort
+#' From J Clin Oncol. 2020 Dec 10; 38(35): 4184–4193 for ER balance
 #'
-#' @param er_status Logical vector indicating ER positivity. NAs are treated as
+#' @param status Logical vector for status. NAs are treated as
 #' Unknown or Indeterminate status
-#'
-#' @return Number of ER negative additional samples required. If set has enough negative
-#' samples, the function returns 0.
+#' @param pos_ratio Numeric between 0 and 1 indicating the proportion of
+#' positive samples wanted, without taking NAs into account
+#' @return Number of extra negative samples required. If negative, extra positive
+#' samples are needed
 #' @export
 #'
 #' @examples
-#' er_neg_missing(sample(c(TRUE, FALSE, NA), size = 50, replace = TRUE, prob = c(0.9, 0.07, 0.03)))
-er_neg_missing <- function(er_status) {
+#' v  <- sample(c(TRUE, FALSE, NA), size = 50, replace = TRUE,
+#'  prob = c(0.9, 0.07, 0.03))
+#' negative_samples_needed(v, 0.8)
+negative_samples_needed <- function(status, pos_ratio=126/195) {
 
-  rlang::check_required(er_status, "er_status")
-  stopifnot("er_status must be a logical vector" = rlang::is_logical(er_status))
-  unc_er_ratio <- 126/195 # 64.6% ER+
+  rlang::check_required(status, "er_status")
+  stopifnot("status must be a logical vector" = rlang::is_logical(status),
+            "pos_ratio must be numeric" = rlang::is_scalar_double(pos_ratio),
+            "pos_ratio outside [0,1]" = pos_ratio > 0 & pos_ratio < 1)
+  status <- status[!is.na(status)]
+  pos_n <- sum(status)
+  negm_n <- as.integer(round(pos_n /pos_ratio - length(status)))
 
-  pos_n <- sum(er_status, na.rm = TRUE)
-  num_n <- sum(!is.na(er_status))
-  negm_n <- as.integer(max(round(pos_n / unc_er_ratio - num_n), 0))
-  ### If Positive missing, warning
-
+  if(negm_n < 0) {
+    negm_n <- as.integer(round(((pos_ratio)/(1-pos_ratio)) * length(status) - ( pos_n/(1-pos_ratio))))
+    negm_n <- negm_n*(-1)
+  }
   return(negm_n)
 }
 
@@ -58,15 +64,26 @@ expand_matrix <- function(x, column_names, n = length(column_names)) {
   return(cbind(x, extra_cols))
 }
 
+# This function takes a list where each element is also list with same number of
+# elements, each one of them a vector with the same number of elements
+factors_median <- function(factors) {
+  fs_names <- names(factors[[1]])
+  mfs <- lapply(fs_names, FUN = function(fn) {
+    apply(do.call("cbind", lapply(factors, "[[", fn)), 1, median)
+  })
+  names(mfs) <- fs_names
+  return(mfs)
+}
+
 ## Function factory to get factors for multiple iterations in parallel
 ## ADD TESTS
-iterative_factors <- function(fun_factor) {
-  function(x, er_status, n_iter, seed, cores) {
+rescale_factors_median <- function(fun_factor) {
+  function(x, status, pos_ratio, n_iter, seed, cores, ...) {
 
     stopifnot("x must be a numeric matrix" = rlang::is_bare_numeric(x) & length(dim(x)) == 2,
-              "er_status must be a logical vector" = rlang::is_logical(er_status),
-              "er_status vector must have names" = rlang::is_named(er_status),
-              "names in er_status vector must match columns in x" = all(names(er_status) %in% colnames(x)),
+              "status must be a logical vector" = rlang::is_logical(status),
+              "status vector must have names" = rlang::is_named(status),
+              "names in status vector must match columns in x" = all(names(status) %in% colnames(x)),
               "n_iter must be an scalar integer" = is_scalar_numinteger(n_iter),
               "seed must be an scalar integer" = is_scalar_numinteger(seed),
               "cores must be an scalar integer" = is_scalar_numinteger(cores))
@@ -75,49 +92,125 @@ iterative_factors <- function(fun_factor) {
     ## https://stackoverflow.com/questions/30456481/controlling-seeds-with-mclapply
     RNGkind("L'Ecuyer-CMRG")
     set.seed(seed)
-    negm <- er_neg_missing(er_status)
-    negc <- names(Filter(isFALSE, er_status))
+    status <- status[!is.na(status)]
+    negm <- negative_samples_needed(status, pos_ratio)
+
+    if(negm > 0) {
+      sample_names <- names(Filter(isFALSE, status))
+      message("Adding ",  negm, " negative samples for rescale")
+    } else {
+      sample_names <- names(Filter(isTRUE, status))
+      negm <- negm*1
+      message("Adding ",  negm, " positive samples for rescale")
+    }
+
     factors <- parallel::mclapply(FUN = function(i) {
-      rmatrix <- expand_matrix(x, negc, negm)
-      fun_factor(rmatrix)
+      # Factors should be calculated with the non NA status columns
+      rmatrix <- expand_matrix(x[, names(status)], sample_names, negm)
+      fun_factor(rmatrix, ...)
     }, X = 1:n_iter, mc.cores = cores)
 
+    message("Finished ", n_iter, " factors iterations")
     return(factors_median(factors))
   }
 }
 
 ## Function factory to get factors for multiple iterations for testing
-iterative_factors_noparallel <- function(fun_factor) {
-  function(x, er_status, n_iter, seed) {
+rescale_factors_median_noparallel <- function(fun_factor) {
+  function(x, status, pos_ratio, n_iter, seed, ...) {
 
     stopifnot("x must be a numeric matrix" = rlang::is_bare_numeric(x) & length(dim(x)) == 2,
-              "er_status must be a logical vector" = rlang::is_logical(er_status),
-              "er_status vector must have names" = rlang::is_named(er_status),
-              "names in er_status vector must match columns in x" = all(names(er_status) %in% colnames(x)),
+              "er_status must be a logical vector" = rlang::is_logical(status),
+              "er_status vector must have names" = rlang::is_named(status),
+              "names in er_status vector must match columns in x" = all(names(status) %in% colnames(x)),
               "n_iter must be an scalar integer" = is_scalar_numinteger(n_iter),
               "seed must be an scalar integer" = is_scalar_numinteger(seed))
 
 
-    stopifnot("ER status vector must have names" = rlang::is_named(er_status))
+    stopifnot("ER status vector must have names" = rlang::is_named(status))
     set.seed(seed)
-    negm <- er_neg_missing(er_status)
-    negc <- names(Filter(isFALSE, er_status))
+    negm <- negative_samples_needed(status)
+
+    if(negm > 0) {
+      sample_names <- names(Filter(isFALSE, status))
+    } else {
+      sample_names <- names(Filter(isTRUE, status))
+      negm <- negm*1
+    }
+
     factors <- lapply(1:n_iter, function(i) {
-        rmatrix <- expand_matrix(x, negc, negm)
-        fun_factor(rmatrix)
+        rmatrix <- expand_matrix(x[, names(status)], sample_names, negm)
+        fun_factor(rmatrix, ...)
     })
     return(factors_median(factors))
   }
 }
 
-# Function to get multiple q (ma, mi) factors with cohort
+# Function to get q (ma, mi) factors with cohort
 # balancing
-iterative_qf <- iterative_factors(qfactors)
+qfactors_median <- rescale_factors_median(qfactors)
 
-# Function to get multiple lower and upper quartile and decile
+# Function to get lower and upper quartile and decile
 # factors with cohort balancing
-iterative_luf <- iterative_factors(lufactors)
+lufactors_median <- rescale_factors_median(lufactors)
+
+# Function to get factors with user specified probabi
+sfactors_median <- rescale_factors_median(sfactors)
+
+qfactors_median_np <- rescale_factors_median_noparallel(qfactors)
+lufactors_median_np <- rescale_factors_median_noparallel(lufactors)
+sfactors_median_np <- rescale_factors_median_noparallel(sfactors)
+
+#' Rescale expression matrix with ma/mi factors
+#'
+#' @param x Numeric matrix with expression values
+#' @param status Logical vector for status. NAs are treated as
+#' Unknown or Indeterminate status
+#' @param pos_ratio Numeric between 0 and 1 indicating the proportion of
+#' positive samples wanted, without taking NAs into account
+#' @param n_iter Number of iterations for sampling
+#' @param seed Random seed
+#' @param cores Number of cores for parallel processing
+#'
+#' @return Numeric rescaled matrix as a balance cohort
+#' @export
+rescale_expr <- function(x, status, pos_ratio, n_iter = 1000,
+                         seed = 37, cores = getOption("mc.cores", 2L)) {
+
+  factor_medians <- qfactors_median(x, status, pos_ratio, n_iter, seed, cores)
+
+  x_res <- apply(x, 2, function(x) {
+    X <- (x - factor_medians$mif) / (factor_medians$maf - factor_medians$mif)
+    X <- (X - 0.5)*2
+  })
+
+  return(as.matrix(x_res))
+}
+
+#' Rescale expression matrix with user provided factors
+#'
+#' @param x Numeric matrix with expression values
+#' @param status Logical vector for status. NAs are treated as
+#' Unknown or Indeterminate status
+#' @param pos_ratio Numeric between 0 and 1 indicating the proportion of
+#' positive samples wanted, without taking NAs into account
+#' @param qs Named vector for quantile probabilities.
+#' Rownames in q and names in qs must match
+#' @param n_iter Number of iterations for sampling
+#' @param seed Random seed
+#' @param cores Number of cores for parallel processing
+#'
+#' @return Numeric rescaled matrix as a balance cohort
+#' @export
+rescale_expr_median_center <- function(x, status, pos_ratio, qs, n_iter = 1000,
+                                  seed = 37, cores = getOption("mc.cores", 2L)) {
+
+  fms <- sfactors_median(x, status, pos_ratio, n_iter, seed, cores, qs)
+  fms <- unlist(fms, use.names = TRUE)
+  message(paste0(fms, collapse = ","))
+  x_res <- apply(x, 2, function(s) s - fms)
+
+  return(as.matrix(x_res))
+}
 
 
-iterative_qf_np <- iterative_factors_noparallel(qfactors)
-iterative_luf_np <- iterative_factors_noparallel(lufactors)
